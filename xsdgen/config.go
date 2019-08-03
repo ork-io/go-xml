@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
+	"net/url"
 	"regexp"
 	"strings"
 
-	"aqwari.net/xml/internal/gen"
-	"aqwari.net/xml/xsd"
+	"github.com/ork-io/go-xml/internal/gen"
+	"github.com/ork-io/go-xml/xsd"
 )
 
 // A Config holds user-defined overrides and filters that are used when
@@ -462,11 +463,36 @@ func (cfg *Config) NameOf(name xml.Name) string {
 	return cfg.public(name)
 }
 
+func (cfg *Config) sanitizeNameSpace(name xml.Name) string {
+	cleanElement := ""
+	ns, err := url.Parse(name.Space)
+	if err != nil {
+		cfg.logf("error parsing namespace: %s", err)
+		return name.Local
+	}
+	// probably much more the w3.org...
+	if ns.Hostname() != "www.w3.org" {
+		s := regexp.MustCompile(`(?m)\||\/|\-|\.`).Split(ns.Path, -1)
+
+		for _, v := range s {
+			if v != "schema" {
+				cleanElement = fmt.Sprintf("%s%s", cleanElement, strings.Title(v))
+			}
+		}
+	}
+	cleanElement = fmt.Sprintf("%s%s", cleanElement, strings.Title(name.Local))
+
+	cfg.logf("element with NS: %s", cleanElement)
+
+	return cleanElement
+}
+
 func (cfg *Config) public(name xml.Name) string {
 	if cfg.nameTransform != nil {
 		name = cfg.nameTransform(name)
 	}
-	return strings.Title(name.Local)
+
+	return strings.Title(cfg.sanitizeNameSpace(name))
 }
 
 //
