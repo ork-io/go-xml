@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/ork-io/go-xml/internal/dependency"
 	"github.com/ork-io/go-xml/internal/gen"
 	"github.com/ork-io/go-xml/xmltree"
@@ -681,7 +683,41 @@ func (cfg *Config) genComplexType(t *xsd.ComplexType) ([]spec, error) {
 		if el.Nillable || el.Optional {
 			options = ",omitempty"
 		}
-		tag := fmt.Sprintf(`xml:"%s %s%s"`, el.Name.Space, el.Name.Local, options)
+
+		var tag string
+		switch el.Type.(type) {
+		case *xsd.ComplexType:
+			t := el.Type.(*xsd.ComplexType)
+			if el.Name.Local == t.Name.Local && el.Name.Space != t.Name.Space {
+				tag = fmt.Sprintf(`xml:"%s %s%s"`, t.Name.Space, t.Name.Local, options)
+			} else {
+				tag = fmt.Sprintf(`xml:"%s %s%s"`, el.Name.Space, el.Name.Local, options)
+			}
+
+			spew.Dump(el)
+		case *xsd.SimpleType:
+			t := el.Type.(*xsd.SimpleType)
+			if el.Name.Local == t.Name.Local && el.Name.Space != t.Name.Space {
+				tag = fmt.Sprintf(`xml:"%s %s%s"`, t.Name.Space, t.Name.Local, options)
+			} else {
+				tag = fmt.Sprintf(`xml:"%s %s%s"`, el.Name.Space, el.Name.Local, options)
+			}
+
+		default:
+			tag = fmt.Sprintf(`xml:"%s %s%s"`, el.Name.Space, el.Name.Local, options)
+		}
+		fmt.Printf("tag: %s\n", tag)
+
+		if tag == `xml:"http://www.icasi.org/CVRF/schema/vuln/1.1 CVE,omitempty"` {
+			fmt.Println("HOOO")
+			spew.Dump(el)
+		}
+
+		// if tag == `xml:"http://www.icasi.org/CVRF/schema/cvrf/1.1 Vulnerability,omitempty"` ||
+		// 	tag == `xml:"http://www.icasi.org/CVRF/schema/vuln/1.1 Vulnerability,omitempty"` {
+		// 	fmt.Println("HOOO")
+		// 	spew.Dump(el)
+		// }
 		base, err := cfg.expr(el.Type)
 		if err != nil {
 			return nil, fmt.Errorf("%s element %s: %v", t.Name.Local, el.Name.Local, err)
